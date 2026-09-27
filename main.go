@@ -27,6 +27,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer db.Close()
 
 	mux := http.NewServeMux() 
 	mux.HandleFunc("/health", healthHandler)
