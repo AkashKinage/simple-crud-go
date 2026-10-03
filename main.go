@@ -7,6 +7,9 @@ import (
 	"net/http"
 
 	"github.com/AkashKinage/simple-crud-go/internal/config"
+	"github.com/AkashKinage/simple-crud-go/internal/handler"
+	"github.com/AkashKinage/simple-crud-go/internal/repository"
+	"github.com/AkashKinage/simple-crud-go/internal/service"
 
 	_ "github.com/lib/pq"
 )
@@ -23,7 +26,6 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	cfg := config.Load()
 	db, err := sql.Open("postgres", cfg.DatabaseURL)
-	_ = db
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -31,6 +33,13 @@ func main() {
 
 	mux := http.NewServeMux() 
 	mux.HandleFunc("/health", healthHandler)
+
+	taskRepo := repository.NewPostgresTaskRepository(db)
+	taskService := service.NewTaskService(taskRepo)
+	taskHandler := handler.NewTaskHandler(taskService)
+
+	mux.HandleFunc("POST /tasks", taskHandler.Create)
+	mux.HandleFunc("GET /tasks/{id}", taskHandler.GetByID)
 
 	log.Fatal(http.ListenAndServe(":3000", mux))
 }
