@@ -38,6 +38,7 @@ func main() {
 	taskService := service.NewTaskService(taskRepo)
 	taskHandler := handler.NewTaskHandler(taskService)
 
+	mux.HandleFunc("GET /tasks", taskHandler.List)
 	mux.HandleFunc("POST /tasks", taskHandler.Create)
 	mux.HandleFunc("GET /tasks/{id}", taskHandler.GetByID)
 

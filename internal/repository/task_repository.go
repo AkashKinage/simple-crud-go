@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/AkashKinage/simple-crud-go/internal/model"
 )
@@ -78,7 +80,63 @@ func (r *postgresTaskRepository) GetByID(ctx context.Context, id int) (*model.Ta
 }
 
 func (r *postgresTaskRepository) List(ctx context.Context, filter TaskFilter) ([]*model.Task, error) {
-	panic("not implemented")
+	query := "SELECT id, title, description, status, priority, created_at, updated_at FROM tasks"
+	
+	var conditions []string
+	var args []interface{}
+	argPos := 1
+
+	if filter.Status != "" {
+		conditions = append(conditions, fmt.Sprintf("status = $%d", argPos))
+		args = append(args, filter.Status)
+		argPos++
+	}
+
+	if filter.Priority != "" {
+		conditions = append(conditions, fmt.Sprintf("priority = $%d", argPos))
+		args = append(args, filter.Priority)
+		argPos++
+	}
+
+	page := filter.Page
+	if page == 0 {
+		page = 1
+	}
+
+	perPage := filter.PerPage
+	if perPage == 0 {
+		perPage = 10
+	}
+
+	offset := (page - 1) * perPage
+
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argPos, argPos + 1)
+	args = append(args, perPage, offset)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	tasks := []*model.Task{}
+	for rows.Next() {
+		task := &model.Task{}
+		if err := rows.Scan(&task.ID, &task.Title, &task.Description, &task.Status, &task.Priority, &task.CreatedAt, &task.UpdatedAt); err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, task)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return tasks, nil
 }
 
 func (r *postgresTaskRepository) Update(ctx context.Context, task *model.Task) (*model.Task, error) {
