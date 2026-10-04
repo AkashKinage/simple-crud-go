@@ -94,3 +94,57 @@ func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(task)
 }
+
+func (h *TaskHandler) List(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+
+	queryStatus := query.Get("status")
+	queryPriority := query.Get("priority")
+	queryPage := query.Get("page")
+	queryPerPage := query.Get("per_page")
+
+	var page, perPage int
+
+	if queryPage != "" {
+		p, err := strconv.Atoi(queryPage)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "error parsing page param")
+			return
+		}
+
+		page = p
+	}
+
+	if queryPerPage != "" {
+		p, err := strconv.Atoi(queryPerPage)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "error parsing per_page param")
+			return
+		}
+
+		perPage = p
+	}
+	
+
+	filter := repository.TaskFilter{
+		Status: queryStatus,
+		Priority: queryPriority,
+		Page: page,
+		PerPage: perPage,
+	}
+
+	tasks, err := h.service.List(r.Context(), filter)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvalidStatus), errors.Is(err, service.ErrInvalidPriority), errors.Is(err, service.ErrInvalidPerPage):
+			writeError(w, http.StatusBadRequest, err.Error())
+		default:
+			writeError(w, http.StatusInternalServerError, "something went wrong")
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(tasks)
+}
